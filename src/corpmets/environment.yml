@@ -1,0 +1,13 @@
+name: calsummets
+channels:
+  - defaults
+dependencies:
+  - python==3.11.13
+  - nmslib==2.1.1
+  - pip
+  - pip:
+    - numpy==1.25.2
+    - pyrush==1.0.9
+    - evaluate==0.4.3
+    - bert_score==0.3.13
+    - zensols.mimic==1.7.1

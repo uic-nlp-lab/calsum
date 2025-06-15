@@ -1,0 +1,52 @@
+# @meta {desc: 'sentence match embedding', date: '2024-05-09'}
+
+
+## Transformer fixed (frozen embeddings)
+#
+# resource contains the transformer model details
+calsum_transformer_resource:
+  class_name: zensols.deepnlp.transformer.TransformerResource
+  torch_config: 'instance: gpu_torch_config'
+  model_id: 'UFNLP/gatortron-base'
+  cased: null
+  cache: false
+  args: "dict: {'local_files_only': ${deepnlp_default:transformer_local_files_only}}"
+  trainable: false
+
+calsum_transformer_tokenizer:
+  class_name: zensols.deepnlp.transformer.TransformerDocumentTokenizer
+  resource: 'instance: calsum_transformer_resource'
+  word_piece_token_length: '${deepnlp_default:word_piece_token_length}'
+
+calsum_transformer_embedding:
+  class_name: zensols.deepnlp.transformer.TransformerEmbedding
+  tokenizer: 'instance: calsum_transformer_tokenizer'
+
+calsum_transformer_embedding_layer:
+  class_name: zensols.deepnlp.transformer.TransformerEmbeddingLayer
+  embed_model: 'instance: calsum_transformer_embedding'
+  feature_vectorizer_manager: 'instance: language_vectorizer_manager'
+
+calsum_word_piece_doc_caching_factory_stash:
+  class_name: zensols.persist.LRUCacheStash
+  maxsize: ${calsum_default:word_piece_doc_cache}
+
+calsum_word_piece_doc_factory:
+  class_name: zensols.deepnlp.transformer.CachingWordPieceFeatureDocumentFactory
+  tokenizer: 'instance: calsum_transformer_tokenizer'
+  embed_model: 'instance: calsum_transformer_embedding'
+  token_embeddings: false
+  stash: 'instance: calsum_word_piece_doc_caching_factory_stash'
+
+
+## Overrides
+#
+deepnlp_sentseq_wordpiece_vectorizer:
+  access: clobber
+  word_piece_doc_factory: 'instance: calsum_word_piece_doc_factory'
+
+deepnlp_sentseq_recurrent_crf_net_settings:
+  embedding_layer: 'instance: calsum_transformer_embedding_layer'
+
+feature_prediction_mapper:
+  word_piece_doc_factory: 'instance: calsum_word_piece_doc_factory'

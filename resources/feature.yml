@@ -1,0 +1,125 @@
+#@meta {desc: 'sentence match feature config/objects', date: '2024-05-05'}
+
+
+## Feature
+#
+# create train, test and validation spilts on keys
+calsum_match_feature_split_key_container:
+  class_name: zensols.dataset.split.StashSplitKeyContainer
+  stash: 'instance: calsum_sent_match_stash'
+  distribution:
+    train: 0.8
+    test: 0.1
+    validation: 0.1
+  pattern: '{name}.txt'
+  key_path: 'path: ${calsum_default:data_dir}/dataset-row-ids'
+
+# a stash that splits along dataset type (i.e. train, validation, test)
+feature_stash:
+  class_name: zensols.dataset.DatasetSplitStash
+  delegate: 'instance: calsum_sent_match_stash'
+  split_container: 'instance: calsum_match_feature_split_key_container'
+
+
+## Vectorization
+#
+# provide the nominals for the token label vectorizer (summary label)
+deepnlp_sentseq_label_1_vectorizer:
+  categories: ${calsum_adm_labels:secid_labels}
+
+# source note ID feature
+deepnlp_note_category_1_vectorizer:
+  class_name: zensols.deeplearn.vectorize.NominalEncodedEncodableFeatureVectorizer
+  feature_id: notecat1
+  categories: ${calsum_adm_labels:note_category_labels}
+
+deepnlp_note_category_vectorizer:
+  class_name: zensols.deeplearn.vectorize.AggregateEncodableFeatureVectorizer
+  feature_id: notecat
+  size: -1
+  delegate_feature_id: notecat1
+
+# source section ID feature
+deepnlp_section_id_1_vectorizer:
+  class_name: zensols.deeplearn.vectorize.NominalEncodedEncodableFeatureVectorizer
+  feature_id: secid1
+  categories: ${calsum_mimicsid_labels:secid_labels}
+
+deepnlp_section_id_vectorizer:
+  class_name: zensols.deeplearn.vectorize.AggregateEncodableFeatureVectorizer
+  feature_id: secid
+  size: -1
+  delegate_feature_id: secid1
+
+# manager needs depenedent resource library mappings as well
+deepnlp_sentseq_label_vectorizer_manager:
+  configured_vectorizers:
+    - deepnlp_sentseq_label_1_vectorizer
+    - deepnlp_sentseq_label_vectorizer
+    - deepnlp_sentseq_mask_vectorizer
+    - deepnlp_sentseq_wordpiece_vectorizer
+    - deepnlp_section_id_1_vectorizer
+    - deepnlp_section_id_vectorizer
+    - deepnlp_note_category_1_vectorizer
+    - deepnlp_note_category_vectorizer
+
+
+## Batch
+#
+batch_dir_stash:
+  # feature grouping: when at least one in a group is needed, all of the
+  # features in that group are loaded
+  groups: >-
+    eval: (
+       set('labels sentseq_mask'.split()),
+       set('section_ids note_categories'.split()),
+       set('word_piece_embedding'.split()))
+
+calsum_batch_mappings:
+  label_attribute_name: labels
+  batch_feature_mapping_adds:
+    - 'dataclass(zensols.deeplearn.batch.BatchFeatureMapping): deepnlp_sentseq_label_batch_mappings'
+  manager_mappings:
+    - vectorizer_manager_name: deepnlp_sentseq_label_vectorizer_manager
+      fields:
+        - attr: section_ids
+          feature_id: secid
+          is_agg: true
+        - attr: note_categories
+          feature_id: notecat
+          is_agg: true
+
+batch_stash:
+  data_point_type: "eval({'import': ['zensols.calsum.model as c']}): c.SentenceMatchSetDataPoint"
+  batch_feature_mappings: 'dataclass(zensols.deeplearn.batch.ConfigBatchFeatureMapping): calsum_batch_mappings'
+  decoded_attributes: 'set: labels, sentseq_mask, section_ids, note_categories, word_piece_embedding'
+  workers: ${calsum_default:batch_preemptive_workers}
+
+
+## Model
+#
+# hidden size of the LSTM layer
+deepnlp_sentseq_recurrent_crf_settings:
+  # number of output features
+  num_labels: ${calsum_adm_labels:secid_num_labels}
+  # hidden recurrent NN dimension
+  hidden_size: 500
+  # "stacked" recurrent NN
+  dropout: 0.15
+
+linear_settings:
+  # number of output features
+  out_features: ${deepnlp_sentseq_recurrent_crf_settings:num_labels}
+  # number deep linear layers, each element as the number of parameters
+  #middle_features: [1, 1, 1, 1, 1, 1]
+
+model_settings:
+  # an optional factory used to create predictions
+  prediction_mapper_name: feature_prediction_mapper
+  # gradient clipping
+  scale_gradient_params:
+    max_norm: 0.5
+    norm_type: 2.
+  # hyperparams
+  learning_rate: 5e-04
+  epochs: 30

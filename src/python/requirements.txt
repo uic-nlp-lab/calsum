@@ -1,0 +1,3 @@
+zensols.calamr~=0.1.0
+zensols.alsum~=0.0.1
+zensols.clinicamr~=0.0.1

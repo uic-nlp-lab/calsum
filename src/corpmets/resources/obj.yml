@@ -1,0 +1,16 @@
+#@meta {author: "Paul Landes"}
+#@meta {desc: "application context", date: "2025-06-11"}
+
+cm_eval:
+  class_name: mets.MetricsEvaluator
+  metrics:
+    rouge:
+      keys: [rouge1, rouge2, rougeL]
+    bleu:
+      keys: ['bleu']
+    bertscore:
+      params:
+        lang: en
+      keys: ['f1', 'precision', 'recall']
+  corpus: 'instance: mimic_corpus'
+  gen_dir: 'path: ../../adm'

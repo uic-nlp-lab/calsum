@@ -1,0 +1,135 @@
+# @meta {desc: 'sentence sequence model cofnig', date: '2024-05-06'}
+
+
+# TODO: add to deepnlp resource library
+
+
+## Vectorization
+#
+# override to provide the labels to vectorize
+deepnlp_sentseq_label_1_vectorizer:
+  class_name: zensols.deeplearn.vectorize.NominalEncodedEncodableFeatureVectorizer
+  feature_id: sslabel1
+
+deepnlp_sentseq_label_vectorizer:
+  class_name: zensols.deeplearn.vectorize.AggregateEncodableFeatureVectorizer
+  feature_id: sslabel
+  size: -1
+  delegate_feature_id: sslabel1
+
+deepnlp_sentseq_mask_vectorizer:
+  class_name: zensols.deeplearn.vectorize.MaskFeatureVectorizer
+  feature_id: ssmask
+  size: -1
+
+# vectorizer embeddings from WordPieceFeatureDocument instances
+deepnlp_sentseq_wordpiece_vectorizer:
+  class_name: zensols.deepnlp.transformer.wordpiece.WordPieceFeatureVectorizer
+  feature_id: wpemb
+  # must stay in sync with deepnlp_sentseq_recurrent_crf_net_settings:embedding_layer
+  word_piece_doc_factory: 'instance: word_piece_doc_factory'
+
+
+# the vectorizer for labels is not language specific and lives in the
+# zensols.deeplearn.vectorize package, so it needs it's own instance
+deepnlp_sentseq_label_vectorizer_manager:
+  class_name: zensols.deeplearn.vectorize.FeatureVectorizerManager
+  torch_config: 'instance: torch_config'
+  configured_vectorizers:
+    - deepnlp_sentseq_label_1_vectorizer
+    - deepnlp_sentseq_label_vectorizer
+    - deepnlp_sentseq_mask_vectorizer
+    - deepnlp_sentseq_wordpiece_vectorizer
+
+# maintains a collection of all vectorizers for the framework
+vectorizer_manager_set:
+  names:
+    - deepnlp_sentseq_label_vectorizer_manager
+
+
+## Batch
+#
+deepnlp_sentseq_label_batch_mappings:
+  manager_mappings:
+    - vectorizer_manager_name: deepnlp_sentseq_label_vectorizer_manager
+      fields:
+        - attr: labels
+          feature_id: sslabel
+          is_agg: true
+          is_label: true
+        - attr: sentseq_mask
+          feature_id: ssmask
+          is_agg: true
+          attr_access: labels
+        - attr: word_piece_embedding
+          feature_id: wpemb
+          is_agg: true
+          attr_access: doc
+
+## Facade
+#
+# declare the ModelFacade to use for the application
+facade:
+  class_name: zensols.deepnlp.classify.ClassifyModelFacade
+
+
+## Model
+#
+model_settings:
+  # used a scored batch iterator to handle terminating CRF states
+  batch_iteration_class_name: zensols.deeplearn.model.SequenceBatchIterator
+  # leave CRF decoded output alone
+  reduce_outcomes: none
+
+deepnlp_sentseq_recurrent_crf_settings:
+  class_name: zensols.deeplearn.layer.RecurrentCRFNetworkSettings
+  # the type of network (one of `rnn`, `lstm`, `gru`)
+  network_type: 'lstm'
+  # the recurrent NN input size, but set to None since this is set from the
+  # embedding layer metadata
+  input_size: null
+  # hidden recurrent NN dimension
+  hidden_size: 24
+  # "stacked" recurrent NN
+  num_layers: 1
+  # number of output features
+  num_labels: ${deepnlp_default:num_labels}
+  # whether or the recurrent NN captures state in both directions
+  bidirectional: true
+  # decoder layer
+  decoder_settings: 'instance: linear_settings'
+  # how the scores are returned
+  score_reduction: 'sum'
+  # set by root level settings
+  dropout: null
+  # no activation used in this set of layers
+  activation: null
+  # 1d batch normalize
+  batch_norm_d: null
+  batch_norm_features: null
+
+# the network configuration, which contains constant information (as opposed to
+# dynamic configuration such as held back `stash:decoded_attributes`)
+deepnlp_sentseq_recurrent_crf_net_settings:
+  class_name: zensols.deepnlp.layer.EmbeddedRecurrentCRFSettings
+  # the batch stash is used to create the batch metadata
+  batch_stash: 'instance: batch_stash'
+  # embedding layer used as the input layer; must stay in sync with
+  # deepnlp_sentseq_wordpiece_vectorizer:embed_model
+  embedding_layer: 'instance: ${deepnlp_default:word_piece_embedding}_embedding_layer'
+  #embedding_layer: null
+  # the recurrent neural network after the embeddings
+  recurrent_crf_settings: 'instance: deepnlp_sentseq_recurrent_crf_settings'
+  # whether to use the CRF porition of the model
+  use_crf: true
+  # mask attribute
+  mask_attribute: sentseq_mask
+
+# let our decoder (last fully connected feed forward network) the output
+# dimension as the number of labels to classify
+linear_settings:
+  out_features: "eval: '${deepnlp_sentseq_label_1_vectorizer:categories}'.count(',') + 1"
+
+# tell the model automation API which model to use
+executor:
+  net_settings: 'instance: deepnlp_sentseq_recurrent_crf_net_settings'

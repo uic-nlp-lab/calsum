@@ -1,0 +1,14 @@
+#!/usr/bin/env python
+
+from zensols.cli import ConfigurationImporterCliHarness
+
+
+if (__name__ == '__main__'):
+    harness = ConfigurationImporterCliHarness(
+        src_dir_name='src',
+        package_resource='corpmets',
+        config_path='etc/db.conf',
+        proto_args='calculate target/metrics.csv --limit 2',
+        proto_factory_kwargs={'reload_pattern': r'^(?:app|mets)'},
+    )
+    harness.run()

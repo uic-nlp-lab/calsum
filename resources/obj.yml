@@ -1,0 +1,170 @@
+# description: application config objects
+
+
+## DeepNLP overrides
+#
+# cache SentenceBERT embeddings in graph nodes
+word_piece_doc_caching_factory_stash:
+  class_name: zensols.persist.LRUCacheStash
+  maxsize: ${calsum_default:word_piece_doc_cache}
+
+
+## AMR overrides
+#
+# set the AMR document annotation stash to `calsum_adm_amr_stash`
+amr_anon_doc_stash:
+  factory: 'instance: ${calamr_default:amr_anon_doc_stash}'
+
+
+## Calamr overrides
+#
+# creates admission AMR documents
+calamr_doc_graph_factory:
+  class_name: zensols.calsum.factory.AdmissionAmrDocumentGraphFactory
+  graph_decorators: >-
+    instance: tuple:
+      calamr_doc_graph_decorator_isomorph
+
+# adds CUI embedded nodes
+calamr_doc_graph_decorator_isomorph:
+  cui_role: ':${camr_token_cui_doc_decorator:name}'
+  class_name: zensols.calsum.morph.ClinicalIsomorphDocumentGraphDecorator
+
+# adds the a way to link CUI definitions to CUI embedded nodes
+calamr_embedding_resource:
+  class_name: zensols.calsum.ClinicalEmbeddingResource
+  condition:
+    if: 'eval: ${calsum_default:link_cuis} and ${clinicamr_default:annotate_features}'
+    then:
+      medical_library: 'instance: mednlp_library'
+    else:
+      medical_library: null
+
+# alignment hyperparameters
+calsum_capacity_calculator_overrides:
+  neighbor_embedding_weights: ${calsum_default:calamr_neighbor_embedding_weights}
+
+# alignment hyperparameters
+capacity_calculator_hyperparam:
+  updates:
+    - capacity_calculator: calsum_capacity_calculator_overrides
+
+# configure multiprocessing for parsing and alignment
+calsum_flow_graph_result_factory_stash:
+  class_name: zensols.persist.KeySubsetStash
+  delegate: 'instance: calamr_flow_graph_result_factory_stash'
+  key_subset: 'path: ${amr_default:corpus_dir}/mimic-hadms.txt'
+  dynamic_subset: false
+
+calamr_flow_graph_result_preemptive_stash:
+  factory: 'instance: calsum_flow_graph_result_factory_stash'
+
+calamr_anon_feature_doc_stash:
+  delegate: 'instance: camr_adm_amr_stash'
+
+
+## ClinicAMR
+#
+# set AMR sentence IDs
+camr_paragraph_factory:
+  # note, section, section name (dash token delimited), paragraph, sentence
+  id_format: CLINIC_{note_id}_{sec_id}_{sec_name}_{para_id}.{sent_id}
+
+# add CUI descriptor "preferred name" for CUI embedded nodes
+camr_token_cui_doc_decorator:
+  feature_format: '{cui_}:{pref_name_}'
+
+
+## Calsum sentence matching
+#
+calsum_sent_matcher:
+  class_name: zensols.calsum.matcher._SentenceMatcher
+  min_sent_flow: 0.5
+
+# create matches
+calsum_sent_match_factory_stash:
+  class_name: zensols.calsum.matcher.SentenceMatchStash
+  _sent_matcher: 'instance: calsum_sent_matcher'
+  factory: 'instance: alsum_reduced_graph_stash'
+
+# calsum_sent_match_keylimit_stash:
+#   class_name: zensols.persist.KeyLimitStash
+#   delegate: 'instance: calsum_sent_match_factory_stash'
+#   limit: 200
+
+# backing stash for matches
+calsum_sent_match_cache_stash:
+  class_name: zensols.persist.DirectoryStash
+  path: 'path: ${calsum_default:data_dir}/sent-match'
+
+# multprocessing
+calsum_sent_match_stash:
+  class_name: zensols.multi.MultiProcessFactoryStash
+  delegate: 'instance: calsum_sent_match_cache_stash'
+  #factory: 'instance: calsum_sent_match_keylimit_stash'
+  factory: 'instance: calsum_sent_match_factory_stash'
+  enable_preemptive: null
+  chunk_size: 0
+  workers: ${calsum_default:match_preemptive_workers}
+
+
+## Calsum reporting
+#
+calsum_match_confusion_matrix_figure:
+  class_name: zensols.calsum.fig.Figure
+  name: match-confusion-matrix
+  title_font_size: 0
+  image_dir: 'path: image'
+  height: 6
+  width: 6
+  padding: 12
+
+calsum_note_sec_contingency_figure:
+  class_name: zensols.calsum.fig.Figure
+  name: note-sec-contingency
+  title_font_size: 0
+  image_dir: 'path: image'
+  height: 6
+  width: 11
+  padding: 12
+
+calsum_perf_reporter:
+  class_name: zensols.calsum.reporter.CalsumPerformanceReporter
+  facade: 'instance: facade'
+  temporary_dir: 'path: ${calsum_default:data_dir}/report'
+  model_name: ds-gen
+  confusion_figure: 'instance: calsum_match_confusion_matrix_figure'
+  human_eval_path: resources/informal-evaluation.xlsx
+
+calsum_dataset_reporter:
+  class_name: zensols.calsum.reporter.CalsumDatasetReporter
+  corpus: 'instance: mimic_corpus'
+  facade: 'instance: facade'
+  graph_stash: 'instance: alsum_reduced_graph_stash'
+  contingency_table: 'instance: calsum_note_sec_contingency_figure'
+  temporary_dir: ${calsum_perf_reporter:temporary_dir}
+  keep_notes: ${camr_adm_amr_factory_stash:keep_notes}
+  human_eval_path: 'path: resources/informal-evaluation.xlsx'
+  msid_anon_resource: 'instance: msid_anon_resource'
+  dsprov_stash: 'application(zensols.dsprov): dsprov_stash'
+
+
+## Generation
+#
+# create data points from the client
+feature_prediction_mapper:
+  class_name: zensols.calsum.model.SequencePredictionMapper
+  vec_manager: 'instance: deepnlp_sentseq_label_vectorizer_manager'
+  label_feature_id: sslabel1
+  doc_parser: 'instance: camr_medical_doc_parser'
+  word_piece_doc_factory: 'instance: ${calamr_default:word_piece_doc_factory}'
+  keep_notes: ${camr_adm_amr_factory_stash:keep_notes}
+  keep_summary_sections: ${camr_adm_amr_factory_stash:keep_summary_sections}
+  default_note: Physician
+
+calsum_summary_generator:
+  class_name: zensols.calsum.model.DischargeSummaryGenerator
+  corpus: 'instance: mimic_corpus'
+  facade: 'instance: facade'
+  keep_notes: ${camr_adm_amr_factory_stash:keep_notes}
+  output_dir: 'path: adm'
