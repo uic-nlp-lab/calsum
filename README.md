@@ -7,13 +7,6 @@ Summarize text using Component ALignment Abstract Meaning Representation
 (CALAMR) alignment.
 
 
-## Documentation
-
-See the [full documentation](https://plandes.github.io/calsum/index.html).
-The [API reference](https://plandes.github.io/calsum/api.html) is also
-available.
-
-
 ## Reproducing Results
 
 1. Install Python 3.11
