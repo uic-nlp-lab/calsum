@@ -27,16 +27,6 @@ Summarize text using Component ALignment Abstract Meaning Representation
 * [ALignment SUMmarization](https://github.com/plandes/alsum)
 
 
-## Obtaining
-
-The easiest way to install the command line program is via the `pip` installer:
-```bash
-pip3 install zensols.calsum
-```
-
-Binaries are also available on [pypi].
-
-
 ## Changelog
 
 An extensive changelog is available [here](CHANGELOG.md).
