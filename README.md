@@ -4,7 +4,8 @@
 [![Python 3.10][python310-badge]][python310-link]
 
 Summarize text using Component ALignment Abstract Meaning Representation
-(CALAMR) alignment.
+(CALAMR) alignment.  This is the source code for the paper [Abstract Meaning
+Representation for Hospital Discharge Summarization].
 
 
 ## Reproducing Results
@@ -44,3 +45,5 @@ Copyright (c) 2024 - 2025 Paul Landes
 [python39-link]: https://www.python.org/downloads/release/python-390
 [python310-badge]: https://img.shields.io/badge/python-3.10-blue.svg
 [python310-link]: https://www.python.org/downloads/release/python-310
+
+[Abstract Meaning Representation for Hospital Discharge Summarization]: https://arxiv.org/pdf/2506.14101
