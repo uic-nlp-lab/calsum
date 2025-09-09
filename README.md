@@ -27,6 +27,22 @@ Representation for Hospital Discharge Summarization].
 * [Clincial Domain Abstract Meaning Representation Graphs](https://github.com/plandes/clinicamr)
 * [ALignment SUMmarization](https://github.com/plandes/alsum)
 
+## Citation
+
+```bibtex
+@misc{landesAbstractMeaningRepresentation2025,
+  title = {Abstract {{Meaning Representation}} for {{Hospital Discharge Summarization}}},
+  author = {Landes, Paul and Rao, Sitara and Chaise, Aaron Jeremy and Eugenio, Barbara Di},
+  year = {2025},
+  month = jun,
+  number = {arXiv:2506.14101},
+  eprint = {2506.14101},
+  primaryclass = {cs},
+  publisher = {arXiv},
+  doi = {10.48550/arXiv.2506.14101}
+}
+```
+
 
 ## Changelog
 
